@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::time::{Duration, Instant};
 
@@ -9,33 +10,62 @@ impl std::fmt::Display for ClockUninitializedError {
         todo!()
     }
 }
+
 impl std::error::Error for ClockUninitializedError {}
 
+pub struct Alarm {
+    last_rang: Option<Instant>,
+    interval: f32,
+}
+
+impl Alarm {
+    pub fn new(interval: f32) -> Self {
+        Alarm {
+            last_rang: Some(Instant::now()),
+            interval,
+        }
+    }
+
+    pub fn update(&mut self, current_time: Instant) -> bool {
+        if let Some(last_rang) = self.last_rang {
+            if last_rang + Duration::from_secs_f32(self.interval) <= current_time {
+                self.last_rang = Some(current_time);
+                return true;
+            }
+        }
+        false
+    }
+}
+
 pub struct Clock {
-    start: Option<Instant>,
-    current: Option<Instant>,
+    start: Instant,
+    current: Instant,
+
+    alarms: HashMap<String, (Alarm, Box<dyn Fn() -> ()>)>,
 }
 
 impl Clock {
-    pub fn new() -> Self {
+    pub fn start() -> Self {
         Self {
-            start: None,
-            current: None,
+            start: Instant::now(),
+            current: Instant::now(),
+            alarms: HashMap::new(),
         }
     }
 
-    pub fn start(&mut self) {
-        if self.start.is_none() && self.current.is_none() {
-            self.start = Some(Instant::now());
-            self.current = Some(self.start.unwrap());
-        }
+    pub fn set_alarm(&mut self, id: String, interval: f32, action: &'static dyn Fn() -> ()) {
+        self.alarms
+            .insert(id, (Alarm::new(interval), Box::new(action)));
     }
 
     pub fn update(&mut self, seconds: f32) -> Result<(), ClockUninitializedError> {
-        if let Some(current) = self.current.as_mut() {
-            *current += Duration::from_secs(seconds as u64);
-            return Ok(());
+        self.current += Duration::from_secs_f32(seconds);
+
+        for (_id, (alarm, action)) in self.alarms.iter_mut() {
+            if alarm.update(self.current) {
+                action();
+            }
         }
-        Err(ClockUninitializedError)
+        Ok(())
     }
 }
