@@ -1,8 +1,23 @@
+use macroquad::experimental::animation::{AnimatedSprite, Animation};
 use macroquad::prelude::*;
-use macroquad::texture::load_texture;
 use macroquad_tiled::load_map;
 
-#[macroquad::main("shotcaller")]
+mod clock;
+mod game;
+
+use game::Game;
+
+fn window_conf() -> Conf {
+    Conf {
+        window_title: "shotcaller".to_owned(),
+        fullscreen: false,
+        window_width: 400,
+        window_height: 160,
+        ..Default::default()
+    }
+}
+
+#[macroquad::main(window_conf())]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map_data: String = std::fs::read_to_string("assets/tiled_map.json")?;
     let map_texture = load_texture("assets/level.png").await?;
@@ -11,8 +26,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map = load_map(&map_data, textures, &[])?;
 
     let camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, 400.0, 160.0));
+    let mut game = Game::new();
 
+    game.start();
     loop {
+        let delta = get_frame_time();
+        game.update(delta)?;
+
         clear_background(BLACK);
 
         set_camera(&camera);
@@ -36,6 +56,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         map.draw_tiles("trees2_5", Rect::new(0.0, 0.0, 400.0, 160.0), None);
         map.draw_tiles("trees2_6", Rect::new(0.0, 0.0, 400.0, 160.0), None);
         map.draw_tiles("trees2_7", Rect::new(0.0, 0.0, 400.0, 160.0), None);
+
+        map.draw_tiles("tower", Rect::new(0.0, 0.0, 400.0, 160.0), None);
 
         next_frame().await
     }
